@@ -1,0 +1,155 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(78, 46%, 95%);
+  --foreground: hsl(157, 50%, 15%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(157, 50%, 15%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(157, 50%, 15%);
+  --primary: hsl(157, 50%, 25%);
+  --primary-foreground: hsl(78, 46%, 95%);
+  --secondary: hsl(45, 93%, 58%);
+  --secondary-foreground: hsl(157, 50%, 15%);
+  --muted: hsl(78, 30%, 88%);
+  --muted-foreground: hsl(157, 25%, 45%);
+  --accent: hsl(45, 93%, 58%);
+  --accent-foreground: hsl(157, 50%, 15%);
+  --destructive: hsl(0, 100%, 50%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(78, 30%, 85%);
+  --input: hsl(78, 30%, 92%);
+  --ring: hsl(157, 50%, 25%);
+  --chart-1: hsl(157, 50%, 25%);
+  --chart-2: hsl(159, 100%, 36%);
+  --chart-3: hsl(42, 93%, 56%);
+  --chart-4: hsl(147, 79%, 42%);
+  --chart-5: hsl(341, 75%, 51%);
+  --sidebar: hsl(0, 0%, 100%);
+  --sidebar-foreground: hsl(157, 50%, 15%);
+  --sidebar-primary: hsl(157, 50%, 25%);
+  --sidebar-primary-foreground: hsl(78, 46%, 95%);
+  --sidebar-accent: hsl(45, 93%, 58%);
+  --sidebar-accent-foreground: hsl(157, 50%, 15%);
+  --sidebar-border: hsl(78, 30%, 85%);
+  --sidebar-ring: hsl(157, 50%, 25%);
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: 12px;
+  --shadow-2xs: 0px 2px 0px 0px hsl(157, 50%, 25%, 0.00);
+  --shadow-xs: 0px 2px 0px 0px hsl(157, 50%, 25%, 0.00);
+  --shadow-sm: 0px 2px 0px 0px hsl(157, 50%, 25%, 0.00), 0px 1px 2px -1px hsl(157, 50%, 25%, 0.00);
+  --shadow: 0px 2px 0px 0px hsl(157, 50%, 25%, 0.00), 0px 1px 2px -1px hsl(157, 50%, 25%, 0.00);
+  --shadow-md: 0px 2px 0px 0px hsl(157, 50%, 25%, 0.00), 0px 2px 4px -1px hsl(157, 50%, 25%, 0.00);
+  --shadow-lg: 0px 2px 0px 0px hsl(157, 50%, 25%, 0.00), 0px 4px 6px -1px hsl(157, 50%, 25%, 0.00);
+  --shadow-xl: 0px 2px 0px 0px hsl(157, 50%, 25%, 0.00), 0px 8px 10px -1px hsl(157, 50%, 25%, 0.00);
+  --shadow-2xl: 0px 2px 0px 0px hsl(157, 50%, 25%, 0.00);
+}
+
+.dark {
+  --background: hsl(157, 50%, 5%);
+  --foreground: hsl(78, 46%, 85%);
+  --card: hsl(157, 30%, 10%);
+  --card-foreground: hsl(78, 46%, 85%);
+  --popover: hsl(157, 30%, 10%);
+  --popover-foreground: hsl(78, 46%, 85%);
+  --primary: hsl(157, 50%, 35%);
+  --primary-foreground: hsl(78, 46%, 95%);
+  --secondary: hsl(45, 93%, 48%);
+  --secondary-foreground: hsl(157, 50%, 95%);
+  --muted: hsl(157, 20%, 15%);
+  --muted-foreground: hsl(157, 25%, 55%);
+  --accent: hsl(45, 93%, 48%);
+  --accent-foreground: hsl(157, 50%, 95%);
+  --destructive: hsl(0, 100%, 50%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(157, 20%, 20%);
+  --input: hsl(157, 20%, 18%);
+  --ring: hsl(157, 50%, 35%);
+  --sidebar: hsl(157, 30%, 10%);
+  --sidebar-foreground: hsl(78, 46%, 85%);
+  --sidebar-primary: hsl(157, 50%, 35%);
+  --sidebar-primary-foreground: hsl(78, 46%, 95%);
+  --sidebar-accent: hsl(45, 93%, 48%);
+  --sidebar-accent-foreground: hsl(157, 50%, 95%);
+  --sidebar-border: hsl(157, 20%, 20%);
+  --sidebar-ring: hsl(157, 50%, 35%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  .phone-container {
+    @apply max-w-sm mx-auto min-h-screen bg-background relative;
+    box-shadow: 0 0 30px rgba(0,0,0,0.1);
+  }
+
+  .prayer-card {
+    @apply transition-all duration-200 hover:translate-y-[-2px];
+  }
+
+  .next-prayer {
+    background: linear-gradient(135deg, hsl(157, 50%, 25%), hsl(157, 50%, 35%));
+    color: hsl(78, 46%, 95%);
+  }
+
+  .toggle-switch {
+    @apply relative inline-block w-12 h-6;
+  }
+
+  .toggle-switch input {
+    @apply opacity-0 w-0 h-0;
+  }
+
+  .slider {
+    @apply absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-gray-300 transition-all duration-300 rounded-full;
+  }
+
+  .slider:before {
+    @apply absolute content-[''] h-4 w-4 left-1 bottom-1 bg-white transition-all duration-300 rounded-full;
+  }
+
+  .toggle-switch input:checked + .slider {
+    background-color: var(--primary);
+  }
+
+  .toggle-switch input:checked + .slider:before {
+    @apply translate-x-6;
+  }
+
+  .bottom-nav-item {
+    @apply transition-all duration-200;
+  }
+
+  .bottom-nav-item.active {
+    color: var(--primary);
+  }
+
+  .audio-wave {
+    @apply w-1 bg-primary rounded-full animate-pulse;
+  }
+}
+
+@media (max-width: 640px) {
+  .phone-container {
+    @apply max-w-none mx-0 shadow-none;
+  }
+}
