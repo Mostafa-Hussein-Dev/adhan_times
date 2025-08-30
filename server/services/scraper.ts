@@ -34,7 +34,7 @@ export class PrayerTimeScraper {
 
       // Look for Arabic prayer names and extract times
       const prayerMap = {
-        'الفجر': 'fajr',
+        'الصبح': 'fajr',
         'الظهر': 'dhuhr', 
         'العصر': 'asr',
         'المغرب': 'maghrib',

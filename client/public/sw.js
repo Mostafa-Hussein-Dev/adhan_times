@@ -1,4 +1,4 @@
-const CACHE_NAME = 'prayer-times-v1';
+const CACHE_NAME = 'prayer-times-v2';
 const urlsToCache = [
   '/',
   '/static/js/bundle.js',
@@ -6,6 +6,7 @@ const urlsToCache = [
   '/adhan.mp3',
   '/icon-192x192.png',
   '/icon-512x512.png',
+  '/offline.html' // Create this file
 ];
 
 // Install Service Worker
@@ -17,70 +18,80 @@ self.addEventListener('install', event => {
         return cache.addAll(urlsToCache);
       })
   );
+  self.skipWaiting(); // Activate immediately
 });
 
-// Fetch event - serve from cache when offline
+// Enhanced fetch with better offline support
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Cache hit - return response
-        if (response) {
+  if (event.request.url.includes('/api/')) {
+    // API requests - cache with network first strategy
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseClone);
+            });
+          }
           return response;
-        }
-
-        return fetch(event.request).then(response => {
-          // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
+        })
+        .catch(() => {
+          // Network failed, try cache
+          return caches.match(event.request);
+        })
+    );
+  } else {
+    // Static resources - cache first strategy
+    event.respondWith(
+      caches.match(event.request)
+        .then(response => {
+          if (response) {
             return response;
           }
-
-          // Clone the response
-          const responseToCache = response.clone();
-
-          caches.open(CACHE_NAME)
-            .then(cache => {
+          return fetch(event.request).then(response => {
+            if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
               cache.put(event.request, responseToCache);
             });
-
-          return response;
-        });
-      })
-  );
-});
-
-// Background sync for prayer time updates
-self.addEventListener('sync', event => {
-  if (event.tag === 'prayer-times-sync') {
-    event.waitUntil(syncPrayerTimes());
+            return response;
+          });
+        })
+    );
   }
 });
 
-async function syncPrayerTimes() {
+// Background sync for settings
+self.addEventListener('sync', event => {
+  if (event.tag === 'settings-sync') {
+    event.waitUntil(syncSettings());
+  }
+});
+
+async function syncSettings() {
   try {
-    const response = await fetch('/api/prayer-times');
-    const prayerTimes = await response.json();
-    
-    // Store in cache
-    const cache = await caches.open(CACHE_NAME);
-    await cache.put('/api/prayer-times', new Response(JSON.stringify(prayerTimes)));
-    
-    console.log('Prayer times synced successfully');
+    // This would be called when connectivity is restored
+    console.log('Background sync for settings triggered');
+    // The actual sync logic is handled in the React hooks
   } catch (error) {
-    console.error('Failed to sync prayer times:', error);
+    console.error('Background sync failed:', error);
   }
 }
 
-// Notification click handler
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  
+// Update cache
+self.addEventListener('activate', event => {
   event.waitUntil(
-    clients.matchAll().then(clientList => {
-      if (clientList.length > 0) {
-        return clientList[0].focus();
-      }
-      return clients.openWindow('/');
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
     })
   );
 });

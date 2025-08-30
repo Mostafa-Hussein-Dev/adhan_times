@@ -1,24 +1,51 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useNotifications } from "./use-notifications";
+
+const ADHAN_CACHE_KEY = 'adhan-audio-cache';
 
 export function useAudio() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPrayer, setCurrentPrayer] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { settings } = useNotifications();
 
+  // Preload and cache audio
+  useEffect(() => {
+    const preloadAudio = async () => {
+      try {
+        if (!audioRef.current) {
+          audioRef.current = new Audio('/adhan.mp3');
+          audioRef.current.preload = 'auto';
+          
+          audioRef.current.onloadeddata = () => {
+            setIsLoaded(true);
+            console.log('Adhan audio loaded and cached');
+          };
+          
+          audioRef.current.onended = () => {
+            setIsPlaying(false);
+            setCurrentPrayer(null);
+          };
+          
+          audioRef.current.onerror = (error) => {
+            console.error('Error loading adhan:', error);
+            setIsPlaying(false);
+            setCurrentPrayer(null);
+          };
+        }
+      } catch (error) {
+        console.error('Error preloading audio:', error);
+      }
+    };
+
+    preloadAudio();
+  }, []);
+
   const playAdhan = useCallback((prayerName?: string) => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio('/adhan.mp3');
-      audioRef.current.onended = () => {
-        setIsPlaying(false);
-        setCurrentPrayer(null);
-      };
-      audioRef.current.onerror = (error) => {
-        console.error('Error playing adhan:', error);
-        setIsPlaying(false);
-        setCurrentPrayer(null);
-      };
+    if (!audioRef.current || !isLoaded) {
+      console.warn('Audio not ready');
+      return;
     }
 
     if (settings?.adhanAutoPlay || prayerName) {
@@ -40,7 +67,7 @@ export function useAudio() {
           });
       }
     }
-  }, [settings]);
+  }, [settings, isLoaded]);
 
   const stopAdhan = useCallback(() => {
     if (audioRef.current) {
@@ -58,6 +85,7 @@ export function useAudio() {
   return {
     isPlaying,
     currentPrayer,
+    isLoaded,
     playAdhan,
     stopAdhan,
     testAdhan,

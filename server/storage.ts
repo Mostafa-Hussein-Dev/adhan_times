@@ -1,5 +1,4 @@
 import { type PrayerTimes, type InsertPrayerTimes, type NotificationSettings, type InsertNotificationSettings } from "@shared/schema";
-import { randomUUID } from "crypto";
 
 export interface IStorage {
   // Prayer times methods
@@ -13,77 +12,66 @@ export interface IStorage {
   updateNotificationSettings(userId: string, settings: Partial<InsertNotificationSettings>): Promise<NotificationSettings>;
 }
 
-export class MemStorage implements IStorage {
-  private prayerTimes: Map<string, PrayerTimes>;
-  private notificationSettings: Map<string, NotificationSettings>;
-
-  constructor() {
-    this.prayerTimes = new Map();
-    this.notificationSettings = new Map();
-    
-    // Create default notification settings
-    const defaultSettings: NotificationSettings = {
-      id: randomUUID(),
-      userId: "default",
-      fajrEnabled: true,
-      dhuhrEnabled: false,
-      asrEnabled: true,
-      maghribEnabled: true,
-      ishaEnabled: false,
-      adhanAutoPlay: true,
-      volume: "80",
-    };
-    this.notificationSettings.set("default", defaultSettings);
+// Lazy import to avoid loading database modules if not needed
+const createStorage = async (): Promise<IStorage> => {
+  if (process.env.DATABASE_URL) {
+    console.log('🗄️  Using PostgreSQL database storage');
+    try {
+      // Dynamic import for database storage
+      const { DatabaseStorage } = await import("./storage/database-storage");
+      return new DatabaseStorage();
+    } catch (error) {
+      console.error('❌ Failed to initialize database storage, falling back to memory:', error);
+      console.log('🧠 Using in-memory storage as fallback');
+      const { MemStorage } = await import("./storage/mem-storage.js");
+      return new MemStorage();
+    }
+  } else {
+    console.log('🧠 Using in-memory storage (DATABASE_URL not configured)');
+    const { MemStorage } = await import("./storage/mem-storage.js");
+    return new MemStorage();
   }
+};
 
+// Create storage instance
+let storageInstance: Promise<IStorage> | null = null;
+
+const getStorage = (): Promise<IStorage> => {
+  if (!storageInstance) {
+    storageInstance = createStorage();
+  }
+  return storageInstance;
+};
+
+// Export a proxy object that delegates to the actual storage
+export const storage: IStorage = {
   async getPrayerTimesByDate(date: string): Promise<PrayerTimes | undefined> {
-    return Array.from(this.prayerTimes.values()).find(pt => pt.date === date);
-  }
+    const storageImpl = await getStorage();
+    return storageImpl.getPrayerTimesByDate(date);
+  },
 
   async getLatestPrayerTimes(): Promise<PrayerTimes | undefined> {
-    const times = Array.from(this.prayerTimes.values());
-    if (times.length === 0) return undefined;
-    return times.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-  }
+    const storageImpl = await getStorage();
+    return storageImpl.getLatestPrayerTimes();
+  },
 
-  async createPrayerTimes(insertPrayerTimes: InsertPrayerTimes): Promise<PrayerTimes> {
-    const id = randomUUID();
-    const prayerTimes: PrayerTimes = {
-      ...insertPrayerTimes,
-      id,
-      scrapedAt: new Date(),
-    };
-    this.prayerTimes.set(id, prayerTimes);
-    return prayerTimes;
-  }
+  async createPrayerTimes(prayerTimes: InsertPrayerTimes): Promise<PrayerTimes> {
+    const storageImpl = await getStorage();
+    return storageImpl.createPrayerTimes(prayerTimes);
+  },
 
-  async getNotificationSettings(userId = "default"): Promise<NotificationSettings | undefined> {
-    return this.notificationSettings.get(userId);
-  }
+  async getNotificationSettings(userId?: string): Promise<NotificationSettings | undefined> {
+    const storageImpl = await getStorage();
+    return storageImpl.getNotificationSettings(userId);
+  },
 
-  async createNotificationSettings(insertSettings: InsertNotificationSettings): Promise<NotificationSettings> {
-    const id = randomUUID();
-    const settings: NotificationSettings = {
-      ...insertSettings,
-      id,
-    };
-    this.notificationSettings.set(insertSettings.userId, settings);
-    return settings;
-  }
+  async createNotificationSettings(settings: InsertNotificationSettings): Promise<NotificationSettings> {
+    const storageImpl = await getStorage();
+    return storageImpl.createNotificationSettings(settings);
+  },
 
   async updateNotificationSettings(userId: string, updates: Partial<InsertNotificationSettings>): Promise<NotificationSettings> {
-    const existing = this.notificationSettings.get(userId);
-    if (!existing) {
-      throw new Error(`Notification settings not found for user: ${userId}`);
-    }
-    
-    const updated: NotificationSettings = {
-      ...existing,
-      ...updates,
-    };
-    this.notificationSettings.set(userId, updated);
-    return updated;
-  }
-}
-
-export const storage = new MemStorage();
+    const storageImpl = await getStorage();
+    return storageImpl.updateNotificationSettings(userId, updates);
+  },
+};

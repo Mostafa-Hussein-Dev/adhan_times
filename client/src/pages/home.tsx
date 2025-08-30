@@ -6,11 +6,13 @@ import { BottomNav } from "@/components/bottom-nav";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Church, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useAudio } from "@/hooks/use-audio";
+import type { NotificationSettings } from "@shared/schema";
 
 const PRAYER_NAMES = [
-  { key: 'fajr', name: 'Fajr', arabic: 'الفجر', icon: 'sun' },
+  { key: 'fajr', name: 'Fajr', arabic: 'الصبح', icon: 'sun' },
   { key: 'dhuhr', name: 'Dhuhr', arabic: 'الظهر', icon: 'sun' },
   { key: 'asr', name: 'Asr', arabic: 'العصر', icon: 'cloud-sun' },
   { key: 'maghrib', name: 'Maghrib', arabic: 'المغرب', icon: 'moon' },
@@ -79,6 +81,7 @@ export default function Home() {
   const { settings, isLoading: settingsLoading } = useNotifications();
   const { toast } = useToast();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const { playAdhan } = useAudio();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -97,6 +100,62 @@ export default function Home() {
       });
     }
   }, [prayerTimesError, toast]);
+
+  // NEW: Prayer time checking effect
+  useEffect(() => {
+    if (!prayerTimes || !settings) return;
+
+    const checkPrayerTimes = () => {
+      const now = new Date();
+      const currentTime = now.getHours() * 60 + now.getMinutes();
+      
+      const prayers = [
+        { key: 'fajr', name: 'Fajr', time: prayerTimes.fajr, enabled: settings.fajrEnabled },
+        { key: 'dhuhr', name: 'Dhuhr', time: prayerTimes.dhuhr, enabled: settings.dhuhrEnabled },
+        { key: 'asr', name: 'Asr', time: prayerTimes.asr, enabled: settings.asrEnabled },
+        { key: 'maghrib', name: 'Maghrib', time: prayerTimes.maghrib, enabled: settings.maghribEnabled },
+        { key: 'isha', name: 'Isha', time: prayerTimes.isha, enabled: settings.ishaEnabled },
+      ];
+
+      prayers.forEach(prayer => {
+        if (prayer.enabled) {
+          const [hours, minutes] = prayer.time.split(':').map(Number);
+          const prayerTime = hours * 60 + minutes;
+          
+          // Check if current time matches prayer time (within 1 minute)
+          if (Math.abs(currentTime - prayerTime) <= 1) {
+            // Show notification if browser supports it
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(`Time for ${prayer.name}`, {
+                body: `It's time for ${prayer.name} prayer`,
+                icon: '/icon-192x192.png',
+              });
+            }
+            
+            // Play adhan if enabled
+            if (settings.adhanAutoPlay) {
+              playAdhan(prayer.name);
+            }
+          }
+        }
+      });
+    };
+
+    // Check immediately
+    checkPrayerTimes();
+    
+    // Set up interval to check every minute
+    const interval = setInterval(checkPrayerTimes, 60000);
+    
+    return () => clearInterval(interval);
+  }, [prayerTimes, settings, playAdhan]);
+
+  // NEW: Request notification permission on component mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   if (prayerTimesLoading || settingsLoading) {
     return (
@@ -152,12 +211,14 @@ export default function Home() {
   }
 
   const nextPrayer = getNextPrayer(prayerTimes, settings);
-  const prayers = PRAYER_NAMES.map(prayer => ({
-    ...prayer,
-    time: prayerTimes ? prayerTimes[prayer.key as keyof typeof prayerTimes] : '',
-    enabled: settings ? settings[`${prayer.key}Enabled`] : false,
-  }));
-
+  const prayers = PRAYER_NAMES.map(prayer => {
+    const timeValue = prayerTimes ? prayerTimes[prayer.key as keyof typeof prayerTimes] : '';
+    return {
+      ...prayer,
+      time: typeof timeValue === 'string' ? timeValue : '',
+      enabled: settings ? settings[`${prayer.key}Enabled` as keyof NotificationSettings] as boolean : false,
+    };
+  });
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -170,12 +231,12 @@ export default function Home() {
             </p>
           </div>
           <div className="w-12 h-12 bg-primary-foreground/20 rounded-full flex items-center justify-center">
-            <Church className="text-xl" />
+            🕌
           </div>
         </div>
         
         {/* Location */}
-        <div className="flex items-center text-primary-foreground/90">
+        <div className="flex items-center text-primary-foreground/90 mb-2">
           <MapPin className="w-4 h-4 mr-2" />
           <span data-testid="location">
             {prayerTimes?.location || "Beirut, Lebanon"}

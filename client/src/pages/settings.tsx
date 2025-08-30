@@ -4,10 +4,9 @@ import { BottomNav } from "@/components/bottom-nav";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Settings as SettingsIcon, Volume2, Play, RefreshCw } from "lucide-react";
+import { Settings as SettingsIcon, Play, RefreshCw } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -44,20 +43,15 @@ export default function Settings() {
   });
 
   const handleNotificationToggle = (prayerKey: string, enabled: boolean) => {
+    const settingKey = `${prayerKey}Enabled`;
     updateSettings({
-      [`${prayerKey}Enabled`]: enabled,
+      [settingKey]: enabled,
     });
   };
 
   const handleAdhanToggle = (enabled: boolean) => {
     updateSettings({
       adhanAutoPlay: enabled,
-    });
-  };
-
-  const handleVolumeChange = (volume: number[]) => {
-    updateSettings({
-      volume: volume[0].toString(),
     });
   };
 
@@ -152,7 +146,7 @@ export default function Settings() {
                   </div>
                 </div>
                 <Switch
-                  checked={settings?.[`${prayer.key}Enabled` as keyof typeof settings] || false}
+                  checked={Boolean(settings?.[`${prayer.key}Enabled` as keyof typeof settings])}
                   onCheckedChange={(checked) => handleNotificationToggle(prayer.key, checked)}
                   data-testid={`toggle-${prayer.key}`}
                 />
@@ -179,27 +173,6 @@ export default function Settings() {
                 checked={settings?.adhanAutoPlay || false}
                 onCheckedChange={handleAdhanToggle}
                 data-testid="toggle-adhan-autoplay"
-              />
-            </div>
-
-            <div className="pt-4 border-t border-border">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-card-foreground flex items-center">
-                  <Volume2 className="w-4 h-4 mr-2" />
-                  Volume
-                </span>
-                <span className="text-sm text-muted-foreground" data-testid="volume-display">
-                  {settings?.volume || 80}%
-                </span>
-              </div>
-              <Slider
-                value={[parseInt(settings?.volume || "80")]}
-                onValueChange={handleVolumeChange}
-                min={0}
-                max={100}
-                step={10}
-                className="w-full"
-                data-testid="volume-slider"
               />
             </div>
 
