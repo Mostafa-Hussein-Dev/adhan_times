@@ -63,43 +63,129 @@ const setPendingUpdates = (updates: PendingUpdate[]) => {
   }
 };
 
-// TEMPORARY SIMPLE VERSION - replace the entire hook
 export function useNotifications() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const syncTimeoutRef = useRef<NodeJS.Timeout>();
 
   const { data: settings, isLoading, isError } = useQuery<NotificationSettings>({
     queryKey: ["/api/notification-settings"],
-    retry: 1,
+    retry: 3,
+    placeholderData: () => getCachedSettings() || undefined,
+    networkMode: 'offlineFirst',
   });
 
-  const updateMutation = useMutation({
+  const syncMutation = useMutation({
     mutationFn: async (updates: Partial<NotificationSettings>) => {
       const response = await apiRequest("PATCH", "/api/notification-settings", updates);
       return await response.json() as NotificationSettings;
     },
-    onSuccess: (response) => {
+    onSuccess: (response: NotificationSettings, variables) => {
+      // Update cache with server response
+      setCachedSettings(response);
       queryClient.setQueryData(["/api/notification-settings"], response);
+      
+      // Remove synced update from pending
+      const pending = getPendingUpdates();
+      const remaining = pending.filter(p => 
+        JSON.stringify(p.updates) !== JSON.stringify(variables)
+      );
+      setPendingUpdates(remaining);
+      
+      console.log('Settings synced successfully');
     },
-    onError: () => {
+    onError: (error, variables) => {
+      console.error('Sync failed:', error);
+      // Keep update in pending for retry
       toast({
-        title: "Error",
-        description: "Failed to update settings",
-        variant: "destructive",
+        title: "Sync Warning",
+        description: "Changes saved locally, will sync when online",
+        variant: "default",
       });
     },
   });
 
+  // Optimistic update function
   const updateSettings = useCallback((updates: Partial<NotificationSettings>) => {
-    updateMutation.mutate(updates);
-  }, [updateMutation]);
+    if (!settings) return;
+
+    // Apply optimistic update immediately
+    const optimisticSettings = { ...settings, ...updates };
+    
+    // Update cache immediately for instant UI response
+    setCachedSettings(optimisticSettings);
+    queryClient.setQueryData(["/api/notification-settings"], optimisticSettings);
+
+    // FIXED: Clear existing timeout before setting new one
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+    
+    // FIXED: Only sync if online, with longer debounce
+    if (navigator.onLine) {
+      syncTimeoutRef.current = setTimeout(() => {
+        // FIXED: Only sync if we're still online
+        if (navigator.onLine && !syncMutation.isPending) {
+          syncMutation.mutate(updates);
+        }
+      }, 2000); // Increased to 2 seconds
+    } else {
+      // Store for later sync when online
+      const pendingUpdate: PendingUpdate = {
+        updates,
+        timestamp: Date.now(),
+        id: Math.random().toString(36)
+      };
+      
+      const pending = getPendingUpdates();
+      setPendingUpdates([...pending, pendingUpdate]);
+    }
+
+  }, [settings, queryClient, syncMutation.isPending]);
+
+  // Sync pending updates when coming back online
+  useEffect(() => {
+    const handleOnline = () => {
+      // FIXED: Add delay to prevent immediate spam
+      setTimeout(() => {
+        const pending = getPendingUpdates();
+        if (pending.length > 0 && !syncMutation.isPending) {
+          console.log(`Syncing ${pending.length} pending updates`);
+          
+          // Merge all pending updates
+          const mergedUpdates = pending.reduce((acc, update) => ({
+            ...acc,
+            ...update.updates
+          }), {});
+          
+          syncMutation.mutate(mergedUpdates);
+        }
+      }, 1000); // Wait 1 second after coming online
+    };
+
+    window.addEventListener('online', handleOnline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [syncMutation.isPending]);
+
+  // Cache successful server responses
+  useEffect(() => {
+    if (settings && !isError) {
+      setCachedSettings(settings);
+    }
+  }, [settings, isError]);
 
   return {
     settings,
     isLoading,
     updateSettings,
-    isSyncing: updateMutation.isPending,
-    pendingUpdates: 0,
-    isOffline: false,
+    isSyncing: syncMutation.isPending,
+    pendingUpdates: getPendingUpdates().length,
+    isOffline: !navigator.onLine,
   };
 }
