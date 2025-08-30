@@ -105,50 +105,64 @@ export default function Home() {
   useEffect(() => {
     if (!prayerTimes || !settings) return;
 
-    const checkPrayerTimes = () => {
+    const scheduleNextPrayer = () => {
       const now = new Date();
-      const currentTime = now.getHours() * 60 + now.getMinutes();
-      
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
       const prayers = [
         { key: 'fajr', name: 'Fajr', time: prayerTimes.fajr, enabled: settings.fajrEnabled },
         { key: 'dhuhr', name: 'Dhuhr', time: prayerTimes.dhuhr, enabled: settings.dhuhrEnabled },
         { key: 'asr', name: 'Asr', time: prayerTimes.asr, enabled: settings.asrEnabled },
         { key: 'maghrib', name: 'Maghrib', time: prayerTimes.maghrib, enabled: settings.maghribEnabled },
         { key: 'isha', name: 'Isha', time: prayerTimes.isha, enabled: settings.ishaEnabled },
-      ];
+      ].filter(p => p.enabled);
 
-      prayers.forEach(prayer => {
-        if (prayer.enabled) {
-          const [hours, minutes] = prayer.time.split(':').map(Number);
-          const prayerTime = hours * 60 + minutes;
-          
-          // Check if current time matches prayer time (within 1 minute)
-          if (Math.abs(currentTime - prayerTime) <= 1) {
-            // Show notification if browser supports it
-            if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification(`Time for ${prayer.name}`, {
-                body: `It's time for ${prayer.name} prayer`,
-                icon: '/icon-192x192.png',
-              });
-            }
-            
-            // Play adhan if enabled
-            if (settings.adhanAutoPlay) {
-              playAdhan(prayer.name);
-            }
-          }
+      // Convert prayer times to minutes
+      const upcoming = prayers
+        .map(prayer => {
+          const [h, m] = prayer.time.split(':').map(Number);
+          return { ...prayer, minutes: h * 60 + m };
+        })
+        .filter(prayer => prayer.minutes >= currentMinutes) // only future prayers today
+        .sort((a, b) => a.minutes - b.minutes);
+
+      const nextPrayer = upcoming[0];
+      if (!nextPrayer) return; // no more prayers today
+
+      const [h, m] = nextPrayer.time.split(':').map(Number);
+      const prayerDate = new Date();
+      prayerDate.setHours(h, m, 0, 0);
+
+      const delay = prayerDate.getTime() - now.getTime();
+
+      // Schedule exact trigger
+      const timer = setTimeout(() => {
+        // Fire notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(`Time for ${nextPrayer.name}`, {
+            body: `It's time for ${nextPrayer.name} prayer`,
+            icon: '/icon-192x192.png',
+          });
         }
-      });
+
+        if (settings.adhanAutoPlay) {
+          playAdhan(nextPrayer.name);
+        }
+
+        // Schedule next one
+        scheduleNextPrayer();
+      }, delay);
+
+      return timer;
     };
 
-    // Check immediately
-    checkPrayerTimes();
-    
-    // Set up interval to check every minute
-    const interval = setInterval(checkPrayerTimes, 60000);
-    
-    return () => clearInterval(interval);
+    const timerId = scheduleNextPrayer();
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
   }, [prayerTimes, settings, playAdhan]);
+
 
   // NEW: Request notification permission on component mount
   useEffect(() => {

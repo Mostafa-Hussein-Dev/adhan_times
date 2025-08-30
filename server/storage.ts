@@ -14,12 +14,14 @@ export interface IStorage {
 
 // Lazy import to avoid loading database modules if not needed
 const createStorage = async (): Promise<IStorage> => {
+  console.log("DATABASE_URL:", process.env.DATABASE_URL);
   if (process.env.DATABASE_URL) {
+
     console.log('🗄️  Using PostgreSQL database storage');
     try {
       // Dynamic import for database storage
-      const { DatabaseStorage } = await import("./storage/database-storage");
-      return new DatabaseStorage();
+      const { DatabaseStorage } = await import("./storage/database-storage.js");
+      return await DatabaseStorage.create();
     } catch (error) {
       console.error('❌ Failed to initialize database storage, falling back to memory:', error);
       console.log('🧠 Using in-memory storage as fallback');
@@ -38,7 +40,9 @@ let storageInstance: Promise<IStorage> | null = null;
 
 const getStorage = (): Promise<IStorage> => {
   if (!storageInstance) {
+    console.log('Initializing storage...');
     storageInstance = createStorage();
+    console.log("Storage initialized.");
   }
   return storageInstance;
 };

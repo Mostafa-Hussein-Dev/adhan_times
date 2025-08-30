@@ -1,5 +1,5 @@
-import { drizzle } from 'drizzle-orm/neon-http';
-import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Client } from 'pg';
 import { eq, desc } from 'drizzle-orm';
 import { prayerTimes, notificationSettings } from '@shared/schema';
 import { randomUUID } from "crypto";
@@ -14,13 +14,29 @@ import type { IStorage } from '../storage';
 export class DatabaseStorage implements IStorage {
   private db: ReturnType<typeof drizzle>;
 
-  constructor() {
+  private constructor(db: ReturnType<typeof drizzle>) {
+    this.db = db;
+  }
+
+  static async create(): Promise<DatabaseStorage> {
     if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL environment variable is required for DatabaseStorage');
+        throw new Error('DATABASE_URL environment variable is required for DatabaseStorage');
     }
-    
-    const sql = neon(process.env.DATABASE_URL);
-    this.db = drizzle(sql);
+
+    const client = new Client({
+        connectionString: process.env.DATABASE_URL,
+    });
+
+    try {
+        await client.connect();
+        console.log("Successfully connected to the database!"); // Log success message
+    } catch (error) {
+        console.error("Database connection failed:", error); // Log any error encountered
+        throw error; // Rethrow the error for further handling
+    }
+
+    const db = drizzle(client);
+    return new DatabaseStorage(db);
   }
 
   // Prayer times methods

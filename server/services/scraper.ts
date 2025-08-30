@@ -105,7 +105,7 @@ export class PrayerTimeScraper {
           fajr: '5:45',
           dhuhr: '12:15',
           asr: '15:28',
-          maghrib: '17:42',
+          maghrib: '19:38',
           isha: '19:15'
         };
         
